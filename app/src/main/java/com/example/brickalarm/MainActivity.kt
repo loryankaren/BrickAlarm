@@ -5,12 +5,17 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.icu.util.Calendar
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
 import android.widget.Button
+import android.widget.GridLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.ui.semantics.text
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.timepicker.MaterialTimePicker
@@ -24,10 +29,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var alarmRecyclerView: RecyclerView
     private lateinit var alarmAdapter: AlarmAdapter
     private val alarms = mutableListOf<Alarm>()
+    private lateinit var alarmGridLayout: GridLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        alarmGridLayout = findViewById<GridLayout>(R.id.alarmGridLayout)
 
         alarmRecyclerView = findViewById(R.id.alarmGrid)
         addAlarmButton = findViewById(R.id.addAlarmButton)
@@ -44,15 +52,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onAlarmClick(position: Int) {
-        val alarm = alarms[position]
-        alarm.isOn = !alarm.isOn
-        alarmAdapter.notifyItemChanged(position)
+    private fun onAlarmClick(buttonId: Int) {
+        val alarm = alarms.find { it.buttonId == buttonId } // Поиск будильника по ID кнопки
+        if (alarm != null) {
+            alarm.isOn = !alarm.isOn
+            // Обновление UI кнопки (например, изменение цвета)
+            val button = findViewById<Button>(buttonId)
+            button.setBackgroundColor(if (alarm.isOn) Color.GREEN else Color.LTGRAY)
 
-        if (alarm.isOn) {
-            scheduleAlarm(alarm)
-        } else {
-            cancelAlarm(alarm)
+            if (alarm.isOn) {
+                scheduleAlarm(alarm)
+            } else {
+                cancelAlarm(alarm)
+            }
         }
     }
 
@@ -84,11 +96,26 @@ class MainActivity : AppCompatActivity() {
                     alarms.add(newAlarm)
                     alarmAdapter.notifyItemInserted(alarms.size - 1)
                     scheduleAlarm(newAlarm)
+
+                    val newAlarmButton = Button(this)
+                    val params = GridLayout.LayoutParams()
+                    params.setGravity(Gravity.CENTER)
+                    params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                    newAlarmButton.layoutParams = params
+                    newAlarmButton.text = String.format("%02d:%02d", newAlarm.hour, newAlarm.minute)
+                    newAlarmButton.id = View.generateViewId() // Генерация уникального ID для кнопки
+                    newAlarmButton.setOnClickListener {
+                        // Обработка клика на кнопку будильника
+                        onAlarmClick(newAlarmButton.id)
+                    }
+                    alarmGridLayout.addView(newAlarmButton)
+                    alarms.add(newAlarm)
                 }
                 .show()
         }
 
         materialTimePicker.show(supportFragmentManager, "timePicker")
+
     }
 
     @SuppressLint("ScheduleExactAlarm")
