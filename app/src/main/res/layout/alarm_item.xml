@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/alarmItem"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?android:attr/selectableItemBackground">
+
+    <TimePicker
+        android:id="@+id/timePicker"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal" />
+
+    <RadioGroup
+        android:id="@+id/repeatModeRadioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp">
+
+        <RadioButton
+            android:id="@+id/repeatOnce"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Однократно" />
+
+        <RadioButton
+            android:id="@+id/repeatDaily"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ежедневно" />
+
+        <RadioButton
+            android:id="@+id/repeatWeekdays"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="По будням" />
+
+    </RadioGroup>
+
+</LinearLayout>
