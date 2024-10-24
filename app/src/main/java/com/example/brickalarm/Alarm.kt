@@ -8,6 +8,6 @@ data class Alarm(
     val hour: Int,
     val minute: Int,
     val mode: AlarmMode,
-    var isOn: Boolean = false,
+    var isOn: Boolean = true,
     var buttonId: Int = 0
 )
