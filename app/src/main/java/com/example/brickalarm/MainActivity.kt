@@ -102,7 +102,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     val newAlarm = Alarm(hour, minute, selectedMode)
                     alarms.add(newAlarm)
-                    alarmAdapter.notifyItemInserted(alarms.size - 1)
                     scheduleAlarm(newAlarm)
 
                     val newAlarmButton = AppCompatButton(this)
@@ -113,12 +112,14 @@ class MainActivity : AppCompatActivity() {
                     newAlarmButton.text = String.format("%02d:%02d", newAlarm.hour, newAlarm.minute)
                     newAlarmButton.backgroundTintList = ColorStateList.valueOf(if (newAlarm.isOn) lightGreen else Color.LTGRAY)
                     newAlarmButton.id = View.generateViewId() // Генерация уникального ID для кнопки
-                    newAlarmButton.setOnClickListener {
-                        // Обработка клика на кнопку будильника
-                        onAlarmClick(newAlarmButton.id)
-                    }
                     alarmGridLayout.addView(newAlarmButton)
-                    alarms.add(newAlarm)
+
+                    newAlarmButton.post { // Установка listener после добавления в GridLayout
+                        newAlarmButton.setOnClickListener {
+                            onAlarmClick(newAlarmButton.id)
+                        }
+                    }
+
                 }
                 .show()
         }
