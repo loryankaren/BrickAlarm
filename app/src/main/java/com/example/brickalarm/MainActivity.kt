@@ -56,23 +56,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onAlarmClick(buttonId: Int) {
-        val alarmIndex = alarms.indexOfFirst { it.buttonId == buttonId } // Находим индекс будильника в списке
-        if (alarmIndex != -1) {
-            val alarm = alarms[alarmIndex] // Получаем будильник по индексу
-            Log.d("AlarmClick", "Before click: alarm.isOn = ${alarm.isOn}, buttonId = $buttonId") // Логирование до клика
-            alarm.isOn = !alarm.isOn // Инвертируем состояние
-            alarms[alarmIndex] = alarm // Обновляем будильник в списке
+    private fun onAlarmClick(position: Int) {
+        val alarm = alarms[position]
+        alarm.isOn = !alarm.isOn
 
-            val button = findViewById<AppCompatButton>(buttonId)
-            button.backgroundTintList = ColorStateList.valueOf(if (alarm.isOn) lightGreen else Color.LTGRAY) // Обновляем цвет
-            Log.d("AlarmClick", "After click: alarm.isOn = ${alarm.isOn}, button color = ${button.backgroundTintList}") // Логирование после клика
+        // Находим кнопку в GridLayout по позиции
+        val button = alarmGridLayout.getChildAt(position) as? AppCompatButton
+        button?.backgroundTintList = ColorStateList.valueOf(if (alarm.isOn) lightGreen else Color.LTGRAY)
 
-            if (alarm.isOn) {
-                scheduleAlarm(alarm)
-            } else {
-                cancelAlarm(alarm)
-            }
+        if (alarm.isOn) {
+            scheduleAlarm(alarm)
+        } else {
+            cancelAlarm(alarm)
         }
     }
 
@@ -111,12 +106,11 @@ class MainActivity : AppCompatActivity() {
                     newAlarmButton.layoutParams = params
                     newAlarmButton.text = String.format("%02d:%02d", newAlarm.hour, newAlarm.minute)
                     newAlarmButton.backgroundTintList = ColorStateList.valueOf(if (newAlarm.isOn) lightGreen else Color.LTGRAY)
-                    newAlarmButton.id = View.generateViewId() // Генерация уникального ID для кнопки
                     alarmGridLayout.addView(newAlarmButton)
 
                     newAlarmButton.post { // Установка listener после добавления в GridLayout
                         newAlarmButton.setOnClickListener {
-                            onAlarmClick(newAlarmButton.id)
+                            onAlarmClick(alarms.indexOf(newAlarm))
                         }
                     }
 
