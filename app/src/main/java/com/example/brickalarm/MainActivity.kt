@@ -19,6 +19,8 @@ import android.widget.GridLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.ui.semantics.text
+import com.google.android.material.button.MaterialButton
 //import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.timepicker.MaterialTimePicker
@@ -29,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private val lightGreen = Color.argb(255,184, 219, 199)
 
     private lateinit var addAlarmButton: FloatingActionButton
+    private lateinit var toggleAllAlarmsButton: MaterialButton
 
     private lateinit var alarmManager: AlarmManager
     //private lateinit var alarmRecyclerView: RecyclerView
@@ -54,10 +57,48 @@ class MainActivity : AppCompatActivity() {
         findViewById<FloatingActionButton>(R.id.addAlarmButton).setOnClickListener {
             showAddAlarmDialog()
         }
+
+        toggleAllAlarmsButton = findViewById<MaterialButton>(R.id.toggleAllAlarmsButton)
+
+        toggleAllAlarmsButton.setOnClickListener {
+            if (toggleAllAlarmsButton.text == "Откл. все") {
+                // Выключаем все будильники
+                alarms.forEach { it.isOn = false }
+                toggleAllAlarmsButton.text = "Вкл. все"
+            } else {
+                // Включаем все будильники
+                alarms.forEach { it.isOn = true }
+                toggleAllAlarmsButton.text = "Откл. все"
+            }
+
+            // Обновляем UI и состояние будильников
+            updateAlarmButtons()
+            updateAlarms()
+        }
+
     }
 
-    private fun onAlarmClick(position: Int) {
-        val alarm = alarms[position]
+    private fun updateAlarmButtons() {
+        for (i in 0 until alarmGridLayout.childCount) {
+            val button = alarmGridLayout.getChildAt(i) as? AppCompatButton
+            val alarm = alarms[i] // Получаем будильник по позиции
+            button?.backgroundTintList = ColorStateList.valueOf(if (alarm.isOn) lightGreen else Color.LTGRAY)
+        }
+    }
+
+    private fun updateAlarms() {
+        alarms.forEachIndexed { index, alarm ->
+            if (alarm.isOn) {
+                scheduleAlarm(alarm)
+            } else {
+                cancelAlarm(alarm)
+            }
+        }
+    }
+
+    private fun onAlarmClick(view: View) {
+        val position = alarmGridLayout.indexOfChild(view) // Получаем позицию кнопки
+        val alarm = alarms[position] // Получаем будильник по позиции
         alarm.isOn = !alarm.isOn
 
         // Находим кнопку в GridLayout по позиции
@@ -67,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         if (alarm.isOn) {
             scheduleAlarm(alarm)
         } else {
+            Toast.makeText(this, "Будильник на ${alarm.hour}:${alarm.minute} отключен", Toast.LENGTH_SHORT).show()
             cancelAlarm(alarm)
         }
     }
@@ -110,7 +152,7 @@ class MainActivity : AppCompatActivity() {
 
                     newAlarmButton.post { // Установка listener после добавления в GridLayout
                         newAlarmButton.setOnClickListener {
-                            onAlarmClick(alarms.indexOf(newAlarm))
+                            onAlarmClick(it)
                         }
                     }
 

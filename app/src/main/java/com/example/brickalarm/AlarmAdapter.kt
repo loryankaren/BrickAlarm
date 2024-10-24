@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 class AlarmAdapter(
     private val alarms: MutableList<Alarm>,
-    private val onAlarmClick: (Int) -> Unit
+    private val onAlarmClick: (View) -> Unit
 ) : RecyclerView.Adapter<AlarmAdapter.AlarmViewHolder>() {
 
     class AlarmViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -39,7 +39,7 @@ class AlarmAdapter(
         }
 
         holder.alarmItem.setBackgroundColor(if (alarm.isOn) Color.GREEN else Color.LTGRAY)
-        holder.alarmItem.setOnClickListener { onAlarmClick(position) }
+        holder.alarmItem.setOnClickListener { onAlarmClick(it) }
     }
 
     override fun getItemCount(): Int {
