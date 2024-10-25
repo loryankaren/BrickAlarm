@@ -36,6 +36,7 @@ class AlarmAdapter(
             AlarmMode.ONCE -> holder.repeatModeRadioGroup.check(R.id.repeatOnce)
             AlarmMode.DAILY -> holder.repeatModeRadioGroup.check(R.id.repeatDaily)
             AlarmMode.WEEKDAYS -> holder.repeatModeRadioGroup.check(R.id.repeatWeekdays)
+            AlarmMode.CUSTOM_DAYS -> holder.repeatModeRadioGroup.check(R.id.repeatCustomDays)
         }
 
         holder.alarmItem.setBackgroundColor(if (alarm.isOn) Color.GREEN else Color.LTGRAY)

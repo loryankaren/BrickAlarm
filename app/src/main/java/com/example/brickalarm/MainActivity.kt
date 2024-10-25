@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
             val hour = materialTimePicker.hour
             val minute = materialTimePicker.minute
 
-            val alarmModes = arrayOf("Однократно", "Ежедневно", "По будням")
+            val alarmModes = arrayOf("Однократно", "Ежедневно", "По будням", "Выбрать дни..")
             var selectedMode = AlarmMode.ONCE
 
             AlertDialog.Builder(this)
@@ -150,6 +150,12 @@ class MainActivity : AppCompatActivity() {
                         0 -> AlarmMode.ONCE
                         1 -> AlarmMode.DAILY
                         2 -> AlarmMode.WEEKDAYS
+                        3 -> {
+                            // Здесь вызываем функцию для выбора дней недели
+                            showDaysOfWeekPickerDialog()
+                            // Возвращаем значение по умолчанию, например, ONCE
+                            AlarmMode.ONCE
+                        }
                         else -> AlarmMode.ONCE
                     }
                     val newAlarm = Alarm(hour, minute, selectedMode)
@@ -185,6 +191,29 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun showDaysOfWeekPickerDialog() {
+        val daysOfWeek = arrayOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+        val checkedDays = booleanArrayOf(false, false, false, false, false, false, false) // Изначально все дни не выбраны
+
+        AlertDialog.Builder(this)
+            .setTitle("Выберите дни недели")
+            .setMultiChoiceItems(daysOfWeek, checkedDays) { _, which, isChecked ->
+                checkedDays[which] = isChecked
+            }
+            .setPositiveButton("OK") { _, _ ->
+                // Здесь обрабатываем выбранные дни недели
+                val selectedDays = mutableListOf<Int>()
+                for (i in checkedDays.indices) {
+                    if (checkedDays[i]) {
+                        selectedDays.add(i + 1) // Добавляем день недели (1 - понедельник, 2 - вторник, и т.д.)
+                    }
+                }
+                // ... используем selectedDays для настройки будильника ...
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
     @SuppressLint("ScheduleExactAlarm")
     private fun scheduleAlarm(alarm: Alarm) {
         val intent = Intent(this, AlarmReceiver::class.java)
@@ -204,6 +233,24 @@ class MainActivity : AppCompatActivity() {
             AlarmMode.ONCE -> 0L // Не повторять
             AlarmMode.DAILY -> AlarmManager.INTERVAL_DAY
             AlarmMode.WEEKDAYS -> AlarmManager.INTERVAL_DAY * 7 // Приблизительно, нужно уточнить логику для будних дней
+            AlarmMode.CUSTOM_DAYS -> {
+                val calendar = Calendar.getInstance()
+                val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+                val selectedDays = alarm.selectedDays // Список выбранных дней недели (1 - понедельник, 2 - вторник, и т.д.)
+
+                // Находим следующий выбранный день недели
+                val nextDayOfWeek = selectedDays.firstOrNull { it > currentDayOfWeek } ?: selectedDays.first()
+
+                // Вычисляем разницу в днях
+                val daysUntilNextAlarm = if (nextDayOfWeek > currentDayOfWeek) {
+                    nextDayOfWeek - currentDayOfWeek
+                } else {
+                    7 - currentDayOfWeek + nextDayOfWeek
+                }
+
+                // Устанавливаем интервал повтора в миллисекундах
+                AlarmManager.INTERVAL_DAY * daysUntilNextAlarm
+            }
         }
 
         if (repeatInterval > 0) {
@@ -219,6 +266,11 @@ class MainActivity : AppCompatActivity() {
                 calendar.timeInMillis,
                 pendingIntent
             )
+        }
+
+        if (alarm.mode == AlarmMode.CUSTOM_DAYS) {
+            // Планируем будильник на выбранные дни недели
+            // ...
         }
 
         Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
