@@ -13,6 +13,18 @@
         android:layout_columnWeight="1"
         tools:ignore="MissingConstraints" />
 
+    <TextView
+        android:id="@+id/infoTextView"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@drawable/info_text_view_background"
+        android:textColor="@color/black"
+        android:padding="10dp"
+        android:text="Создайте или выделите будильник"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <GridLayout
         android:id="@+id/alarmGridLayout"
         android:layout_width="match_parent"
@@ -20,9 +32,10 @@
         android:columnCount="4"
         android:rowCount="30"
         android:alignmentMode="alignMargins"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/infoTextView"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="6dp">
     </GridLayout>
 
     <Space

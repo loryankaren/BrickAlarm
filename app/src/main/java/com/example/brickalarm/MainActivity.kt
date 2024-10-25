@@ -5,28 +5,26 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Color
 
 import android.icu.util.Calendar
 import android.os.Bundle
-import android.util.Log
 import android.view.Gravity
 import android.view.View
-// import android.widget.Button // Закомментируйте эту строку
-import androidx.appcompat.widget.AppCompatButton // Или import com.google.android.material.button.MaterialButton
+import androidx.appcompat.widget.AppCompatButton
 import android.widget.GridLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.ui.semantics.text
 import com.google.android.material.button.MaterialButton
-//import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
 
 class MainActivity : AppCompatActivity() {
+
+    private var selectedDaysForNewAlarm: List<Int> = emptyList() // Переменная для хранения выбранных дней
 
     private var selectedButton: AppCompatButton? = null
 
@@ -40,10 +38,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var alarmAdapter: AlarmAdapter
     private val alarms = mutableListOf<Alarm>()
     private lateinit var alarmGridLayout: GridLayout
+    private lateinit var infoTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        infoTextView = findViewById<TextView>(R.id.infoTextView)
 
         alarmGridLayout = findViewById<GridLayout>(R.id.alarmGridLayout)
         //alarmRecyclerView = findViewById(R.id.alarmGrid)
@@ -77,6 +78,25 @@ class MainActivity : AppCompatActivity() {
             updateAlarmButtons()
             updateAlarms()
         }
+
+//        for (i in 0 until alarmGridLayout.childCount) {
+//            val alarmButton = alarmGridLayout.getChildAt(i) as Button
+//            alarmButton.setOnClickListener {
+//                val alarm = alarms[i] // Получаем данные будильника по индексу кнопки
+//
+//                val alarmModeText = when (alarm.mode) {
+//                    AlarmMode.ONCE -> "Однократно"
+//                    AlarmMode.DAILY -> "Ежедневно"
+//                    AlarmMode.WEEKDAYS -> "По будням"
+//                    AlarmMode.CUSTOM_DAYS -> {
+//                        val daysOfWeekNames = listOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+//                        alarm.selectedDays.joinToString(", ") { daysOfWeekNames[it - 1] }
+//                    }
+//                }
+//
+//                infoTextView.text = alarmModeText
+//            }
+//        }
 
     }
 
@@ -115,6 +135,17 @@ class MainActivity : AppCompatActivity() {
         selectedButton?.isSelected = true
         selectedButton?.setBackgroundResource(R.drawable.selected_button_background)
 
+        val alarmModeText = when (alarm.mode) {
+            AlarmMode.ONCE -> "Однократно"
+            AlarmMode.DAILY -> "Ежедневно"
+            AlarmMode.WEEKDAYS -> "По будням"
+            AlarmMode.CUSTOM_DAYS -> {
+                val daysOfWeekNames = listOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+                alarm.selectedDays.joinToString(", ") { daysOfWeekNames[it - 1] }
+            }
+        }
+
+        infoTextView.text = alarmModeText
 
 //        // Находим кнопку в GridLayout по позиции
 //        val button = alarmGridLayout.getChildAt(position) as? AppCompatButton
@@ -147,41 +178,62 @@ class MainActivity : AppCompatActivity() {
                 .setTitle("Выберите режим работы")
                 .setItems(alarmModes) { _, which ->
                     selectedMode = when (which) {
-                        0 -> AlarmMode.ONCE
-                        1 -> AlarmMode.DAILY
-                        2 -> AlarmMode.WEEKDAYS
+                        0 -> { // Однократно
+                            val newAlarm = Alarm(hour, minute, AlarmMode.ONCE)
+                            alarms.add(newAlarm)
+                            scheduleAlarm(newAlarm)
+                            createAlarmButton(newAlarm)
+                            AlarmMode.ONCE
+                        }
+                        1 -> { // Ежедневно
+                            val newAlarm = Alarm(hour, minute, AlarmMode.DAILY)
+                            alarms.add(newAlarm)
+                            scheduleAlarm(newAlarm)
+                            createAlarmButton(newAlarm)
+                            AlarmMode.DAILY
+                        }
+                        2 -> { // По будням
+                            val newAlarm = Alarm(hour, minute, AlarmMode.WEEKDAYS)
+                            alarms.add(newAlarm)
+                            scheduleAlarm(newAlarm)
+                            createAlarmButton(newAlarm)
+                            AlarmMode.WEEKDAYS
+                        }
                         3 -> {
                             // Здесь вызываем функцию для выбора дней недели
-                            showDaysOfWeekPickerDialog()
+                            showDaysOfWeekPickerDialog(this) {context, selectedDays -> // Callback для получения выбранных дней
+                                selectedDaysForNewAlarm = selectedDays
+
+                                val newAlarm = Alarm(hour, minute, selectedMode, selectedDaysForNewAlarm)
+                                alarms.add(newAlarm)
+                                scheduleAlarm(newAlarm)
+
+                                val newAlarmButton = AppCompatButton(this)
+                                newAlarmButton.setBackgroundResource(android.R.drawable.btn_default)
+                                val params = GridLayout.LayoutParams()
+                                params.setGravity(Gravity.CENTER)
+                                params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                                newAlarmButton.layoutParams = params
+                                newAlarmButton.text = String.format("%02d:%02d", newAlarm.hour, newAlarm.minute)
+
+                                newAlarmButton.setOnClickListener {
+                                    onAlarmClick(it)
+                                }
+                                alarmGridLayout.addView(newAlarmButton)
+
+                                newAlarmButton.post { // Установка listener после добавления в GridLayout
+                                    newAlarmButton.setOnClickListener {
+                                        onAlarmClick(it)
+                                    }
+                                }
+
+                            }
                             // Возвращаем значение по умолчанию, например, ONCE
-                            AlarmMode.ONCE
+                            AlarmMode.CUSTOM_DAYS
                         }
                         else -> AlarmMode.ONCE
                     }
-                    val newAlarm = Alarm(hour, minute, selectedMode)
-                    alarms.add(newAlarm)
-                    scheduleAlarm(newAlarm)
 
-                    val newAlarmButton = AppCompatButton(this)
-                    // newAlarmButton.isSelected = false
-                    newAlarmButton.setBackgroundResource(android.R.drawable.btn_default)
-                    val params = GridLayout.LayoutParams()
-                    params.setGravity(Gravity.CENTER)
-                    params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                    newAlarmButton.layoutParams = params
-                    newAlarmButton.text = String.format("%02d:%02d", newAlarm.hour, newAlarm.minute)
-                    //newAlarmButton.backgroundTintList = ColorStateList.valueOf(if (newAlarm.isOn) lightGreen else Color.LTGRAY)
-                    //newAlarmButton.background = resources.getDrawable(R.drawable.alarm_off_background, null)
-                    newAlarmButton.setOnClickListener {
-                        onAlarmClick(it)
-                    }
-                    alarmGridLayout.addView(newAlarmButton)
-
-                    newAlarmButton.post { // Установка listener после добавления в GridLayout
-                        newAlarmButton.setOnClickListener {
-                            onAlarmClick(it)
-                        }
-                    }
 
                 }
                 .show()
@@ -191,9 +243,29 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private fun showDaysOfWeekPickerDialog() {
+    private fun createAlarmButton(alarm: Alarm) {
+        val newAlarmButton = AppCompatButton(this)
+        newAlarmButton.setBackgroundResource(android.R.drawable.btn_default)
+        val params = GridLayout.LayoutParams()
+        params.setGravity(Gravity.CENTER)
+        params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+        newAlarmButton.layoutParams = params
+        newAlarmButton.text = String.format("%02d:%02d", alarm.hour, alarm.minute)
+        newAlarmButton.setOnClickListener {
+            onAlarmClick(it)
+        }
+        alarmGridLayout.addView(newAlarmButton)
+
+        newAlarmButton.post { // Установка listener после добавления в GridLayout
+            newAlarmButton.setOnClickListener {
+                onAlarmClick(it)
+            }
+        }
+    }
+
+    private fun showDaysOfWeekPickerDialog(context: Context, onDaysSelected: (Context, List<Int>) -> Unit) {
         val daysOfWeek = arrayOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
-        val checkedDays = booleanArrayOf(false, false, false, false, false, false, false) // Изначально все дни не выбраны
+        val checkedDays = booleanArrayOf(false, false, false, false, false, false, false)
 
         AlertDialog.Builder(this)
             .setTitle("Выберите дни недели")
@@ -201,14 +273,13 @@ class MainActivity : AppCompatActivity() {
                 checkedDays[which] = isChecked
             }
             .setPositiveButton("OK") { _, _ ->
-                // Здесь обрабатываем выбранные дни недели
                 val selectedDays = mutableListOf<Int>()
                 for (i in checkedDays.indices) {
                     if (checkedDays[i]) {
-                        selectedDays.add(i + 1) // Добавляем день недели (1 - понедельник, 2 - вторник, и т.д.)
+                        selectedDays.add(i + 1)
                     }
                 }
-                // ... используем selectedDays для настройки будильника ...
+                onDaysSelected(context,selectedDays) // Вызываем callback с выбранными днями
             }
             .setNegativeButton("Отмена", null)
             .show()
