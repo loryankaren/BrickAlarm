@@ -28,6 +28,8 @@ import com.google.android.material.timepicker.TimeFormat
 
 class MainActivity : AppCompatActivity() {
 
+    private var selectedButton: AppCompatButton? = null
+
     private val lightGreen = Color.argb(255,184, 219, 199)
 
     private lateinit var addAlarmButton: FloatingActionButton
@@ -82,7 +84,7 @@ class MainActivity : AppCompatActivity() {
         for (i in 0 until alarmGridLayout.childCount) {
             val button = alarmGridLayout.getChildAt(i) as? AppCompatButton
             val alarm = alarms[i] // Получаем будильник по позиции
-            button?.backgroundTintList = ColorStateList.valueOf(if (alarm.isOn) lightGreen else Color.LTGRAY)
+            button?.background = resources.getDrawable(if (alarm.isOn) R.drawable.alarm_on_background else R.drawable.alarm_off_background, null)
         }
     }
 
@@ -97,20 +99,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onAlarmClick(view: View) {
+
         val position = alarmGridLayout.indexOfChild(view) // Получаем позицию кнопки
         val alarm = alarms[position] // Получаем будильник по позиции
         alarm.isOn = !alarm.isOn
 
-        // Находим кнопку в GridLayout по позиции
-        val button = alarmGridLayout.getChildAt(position) as? AppCompatButton
-        button?.backgroundTintList = ColorStateList.valueOf(if (alarm.isOn) lightGreen else Color.LTGRAY)
+        val button = view as? AppCompatButton
 
-        if (alarm.isOn) {
-            scheduleAlarm(alarm)
-        } else {
-            Toast.makeText(this, "Будильник на ${alarm.hour}:${alarm.minute} отключен", Toast.LENGTH_SHORT).show()
-            cancelAlarm(alarm)
-        }
+        // Снимаем выделение с предыдущей кнопки
+        selectedButton?.isSelected = false
+        selectedButton?.setBackgroundResource(android.R.drawable.btn_default)
+
+        // Выделяем текущую кнопку
+        selectedButton = button
+        selectedButton?.isSelected = true
+        selectedButton?.setBackgroundResource(R.drawable.selected_button_background)
+
+
+//        // Находим кнопку в GridLayout по позиции
+//        val button = alarmGridLayout.getChildAt(position) as? AppCompatButton
+//        button?.backgroundTintList = ColorStateList.valueOf(if (alarm.isOn) lightGreen else Color.LTGRAY)
+//
+//        if (alarm.isOn) {
+//            scheduleAlarm(alarm)
+//        } else {
+//            Toast.makeText(this, "Будильник на ${alarm.hour}:${alarm.minute} отключен", Toast.LENGTH_SHORT).show()
+//            cancelAlarm(alarm)
+//        }
     }
 
     private fun showAddAlarmDialog() {
@@ -142,12 +157,18 @@ class MainActivity : AppCompatActivity() {
                     scheduleAlarm(newAlarm)
 
                     val newAlarmButton = AppCompatButton(this)
+                    // newAlarmButton.isSelected = false
+                    newAlarmButton.setBackgroundResource(android.R.drawable.btn_default)
                     val params = GridLayout.LayoutParams()
                     params.setGravity(Gravity.CENTER)
                     params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
                     newAlarmButton.layoutParams = params
                     newAlarmButton.text = String.format("%02d:%02d", newAlarm.hour, newAlarm.minute)
-                    newAlarmButton.backgroundTintList = ColorStateList.valueOf(if (newAlarm.isOn) lightGreen else Color.LTGRAY)
+                    //newAlarmButton.backgroundTintList = ColorStateList.valueOf(if (newAlarm.isOn) lightGreen else Color.LTGRAY)
+                    //newAlarmButton.background = resources.getDrawable(R.drawable.alarm_off_background, null)
+                    newAlarmButton.setOnClickListener {
+                        onAlarmClick(it)
+                    }
                     alarmGridLayout.addView(newAlarmButton)
 
                     newAlarmButton.post { // Установка listener после добавления в GridLayout
