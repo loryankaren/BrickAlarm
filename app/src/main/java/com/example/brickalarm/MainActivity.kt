@@ -175,21 +175,18 @@ class MainActivity : AppCompatActivity() {
                         alarms.add(newAlarm)
                         scheduleAlarm(newAlarm)
                         addAlarmButton(newAlarm)
-                        //infoTextView.text = "Однократно"
                     }
                     AlarmMode.DAILY -> {
                         val newAlarm = createAlarm(hour, minute, AlarmMode.DAILY)
                         alarms.add(newAlarm)
                         scheduleAlarm(newAlarm)
                         addAlarmButton(newAlarm)
-                        //infoTextView.text = "Ежедневно"
                     }
                     AlarmMode.WEEKDAYS -> {
                         val newAlarm = createAlarm(hour, minute, AlarmMode.WEEKDAYS)
                         alarms.add(newAlarm)
                         scheduleAlarm(newAlarm)
                         addAlarmButton(newAlarm)
-                        //infoTextView.text = "По будням"
                     }
                     AlarmMode.CUSTOM_DAYS -> {
                         showDaysOfWeekPickerDialog(this) { context, selectedDays ->
@@ -197,10 +194,6 @@ class MainActivity : AppCompatActivity() {
                             alarms.add(newAlarm)
                             (context as MainActivity).scheduleAlarm(newAlarm)
                             addAlarmButton(newAlarm)
-                            // Обновляем infoTextView с выбранными днями
-                            //val daysOfWeekNames = listOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
-                            //val selectedDaysText = selectedDays.joinToString(", ") { daysOfWeekNames[it - 1] }
-//                            infoTextView.text = selectedDaysText
                         }
                     }
                 }
