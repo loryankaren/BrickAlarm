@@ -13,10 +13,13 @@ import android.view.Gravity
 import android.view.View
 import androidx.appcompat.widget.AppCompatButton
 import android.widget.GridLayout
+import android.widget.NumberPicker
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.ui.semantics.text
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.timepicker.MaterialTimePicker
@@ -131,56 +134,81 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAddAlarmDialog() {
-        val materialTimePicker = MaterialTimePicker.Builder()
-            .setTimeFormat(TimeFormat.CLOCK_24H)
-            .setHour(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
-            .setMinute(Calendar.getInstance().get(Calendar.MINUTE))
-            .setTitleText("Выберите время будильника")
-            .build()
+        // Создаем layout для диалогового окна
+        val dialogView = layoutInflater.inflate(R.layout.alarm_item, null)
 
-        materialTimePicker.addOnPositiveButtonClickListener {
-            val hour = materialTimePicker.hour
-            val minute = materialTimePicker.minute
+        val modeRadioGroup = dialogView.findViewById<RadioGroup>(R.id.repeatModeRadioGroup)
 
-            val alarmModes = arrayOf("Однократно", "Ежедневно", "По будням", "Выбрать дни..")
+        // Находим NumberPicker в layout
+        val hourPicker = dialogView.findViewById<NumberPicker>(R.id.hourPicker)
+        val minutePicker = dialogView.findViewById<NumberPicker>(R.id.minutePicker)
 
-            AlertDialog.Builder(this)
-                .setTitle("Выберите режим работы")
-                .setItems(alarmModes) { _, which ->
-                    when (which) {
-                        0 -> { // Однократно
-                            val newAlarm = createAlarm(hour, minute, AlarmMode.ONCE)
+        // Настраиваем NumberPicker
+        hourPicker.minValue = 0
+        hourPicker.maxValue = 23
+        minutePicker.minValue = 0
+        minutePicker.maxValue = 59
+
+        // Устанавливаем текущее время (необязательно)
+        val calendar = Calendar.getInstance()
+        hourPicker.value = calendar.get(Calendar.HOUR_OF_DAY)
+        minutePicker.value = calendar.get(Calendar.MINUTE)
+
+        AlertDialog.Builder(this)
+            .setTitle("Выберите время будильника")
+            .setView(dialogView)
+            .setPositiveButton("OK") { _, _ ->
+                val hour = hourPicker.value
+                val minute = minutePicker.value
+                val mode = when (modeRadioGroup.checkedRadioButtonId) {
+                    R.id.repeatOnce -> AlarmMode.ONCE
+                    R.id.repeatDaily -> AlarmMode.DAILY
+                    R.id.repeatWeekdays -> AlarmMode.WEEKDAYS
+                    R.id.repeatCustomDays -> AlarmMode.CUSTOM_DAYS
+                    else -> AlarmMode.ONCE
+                }
+
+                // Вложенная логика для каждого режима работы
+                when (mode) {
+                    AlarmMode.ONCE -> {
+                        val newAlarm = createAlarm(hour, minute, AlarmMode.ONCE)
+                        alarms.add(newAlarm)
+                        scheduleAlarm(newAlarm)
+                        addAlarmButton(newAlarm)
+                        //infoTextView.text = "Однократно"
+                    }
+                    AlarmMode.DAILY -> {
+                        val newAlarm = createAlarm(hour, minute, AlarmMode.DAILY)
+                        alarms.add(newAlarm)
+                        scheduleAlarm(newAlarm)
+                        addAlarmButton(newAlarm)
+                        //infoTextView.text = "Ежедневно"
+                    }
+                    AlarmMode.WEEKDAYS -> {
+                        val newAlarm = createAlarm(hour, minute, AlarmMode.WEEKDAYS)
+                        alarms.add(newAlarm)
+                        scheduleAlarm(newAlarm)
+                        addAlarmButton(newAlarm)
+                        //infoTextView.text = "По будням"
+                    }
+                    AlarmMode.CUSTOM_DAYS -> {
+                        showDaysOfWeekPickerDialog(this) { context, selectedDays ->
+                            val newAlarm = createAlarm(hour, minute, AlarmMode.CUSTOM_DAYS, selectedDays)
                             alarms.add(newAlarm)
-                            scheduleAlarm(newAlarm)
+                            (context as MainActivity).scheduleAlarm(newAlarm)
                             addAlarmButton(newAlarm)
-                        }
-                        1 -> { // Ежедневно
-                            val newAlarm = createAlarm(hour, minute, AlarmMode.DAILY)
-                            alarms.add(newAlarm)
-                            scheduleAlarm(newAlarm)
-                            addAlarmButton(newAlarm)
-                        }
-                        2 -> { // По будням
-                            val newAlarm = createAlarm(hour, minute, AlarmMode.WEEKDAYS)
-                            alarms.add(newAlarm)
-                            scheduleAlarm(newAlarm)
-                            addAlarmButton(newAlarm)
-                        }
-                        3 -> { // Выбрать дни..
-                            showDaysOfWeekPickerDialog(this) { context, selectedDays ->
-                                val newAlarm = createAlarm(hour, minute, AlarmMode.CUSTOM_DAYS, selectedDays)
-                                alarms.add(newAlarm)
-                                (context as MainActivity).scheduleAlarm(newAlarm)
-                                addAlarmButton(newAlarm)
-                            }
+                            // Обновляем infoTextView с выбранными днями
+                            //val daysOfWeekNames = listOf("Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+                            //val selectedDaysText = selectedDays.joinToString(", ") { daysOfWeekNames[it - 1] }
+//                            infoTextView.text = selectedDaysText
                         }
                     }
                 }
-                .show()
-        }
-
-        materialTimePicker.show(supportFragmentManager, "timePicker")
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
+
 
     private fun createAlarm(hour: Int, minute: Int, mode: AlarmMode, selectedDays: List<Int> = emptyList()): Alarm {
         return Alarm(hour, minute, mode, selectedDays)

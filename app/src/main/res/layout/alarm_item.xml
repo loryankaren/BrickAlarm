@@ -9,11 +9,34 @@
     android:focusable="true"
     android:background="?android:attr/selectableItemBackground">
 
-    <TimePicker
-        android:id="@+id/timePicker"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal" />
+        android:orientation="horizontal"
+        android:layout_gravity="center_horizontal">
+
+        <NumberPicker
+            android:id="@+id/hourPicker"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="140dp"
+            />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=":"
+            android:textSize="24sp"
+            android:layout_gravity="center_vertical" />
+
+        <NumberPicker
+            android:id="@+id/minutePicker"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="140dp"
+            />
+
+    </LinearLayout>
 
     <RadioGroup
         android:id="@+id/repeatModeRadioGroup"

@@ -1,12 +1,14 @@
 package com.example.brickalarm
 
 import android.graphics.Color
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.NumberPicker
 import android.widget.RadioGroup
-import android.widget.TimePicker
+import android.widget.TextView
 
 import androidx.recyclerview.widget.RecyclerView
 
@@ -17,7 +19,8 @@ class AlarmAdapter(
 
     class AlarmViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val alarmItem: LinearLayout = itemView.findViewById(R.id.alarmItem)
-        val timePicker: TimePicker = itemView.findViewById(R.id.timePicker)
+        val hourPicker: NumberPicker = itemView.findViewById(R.id.hourPicker)
+        val minutePicker: NumberPicker = itemView.findViewById(R.id.minutePicker)
         val repeatModeRadioGroup: RadioGroup = itemView.findViewById(R.id.repeatModeRadioGroup)
     }
 
@@ -27,10 +30,11 @@ class AlarmAdapter(
     }
 
     override fun onBindViewHolder(holder: AlarmViewHolder, position: Int) {
+
         val alarm = alarms[position]
 
-        holder.timePicker.hour = alarm.hour
-        holder.timePicker.minute = alarm.minute
+        holder.hourPicker.value = alarm.hour
+        holder.minutePicker.value = alarm.minute
 
         when (alarm.mode) {
             AlarmMode.ONCE -> holder.repeatModeRadioGroup.check(R.id.repeatOnce)
