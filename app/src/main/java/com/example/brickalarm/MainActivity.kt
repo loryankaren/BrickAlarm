@@ -52,35 +52,47 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        AlertDialog.Builder(this)
-            .setTitle("Важная информация")
-            .setMessage("Для обеспечения точной работы будильника, пожалуйста, выберите режим фоновой активности \"Нет ограничений\" и разрешите игнорировать режим \"Не беспокоить\". Это позволит будильнику срабатывать вовремя, даже если устройство находится в режиме ожидания или режиме \"Не беспокоить\".")
-            .setPositiveButton("OK") { _, _ ->
-                requestBatteryOptimizationWhitelist()
-                requestDoNotDisturbPermission() // Вызов requestDoNotDisturbPermission() после нажатия "OK"
-            }
-            .setNegativeButton("Отмена", null)
-            .show()
+        // Проверяем текущее состояние разрешений
+        val batteryOptimizationEnabled = !isIgnoringBatteryOptimizations()
+        val dndPermissionGranted = isNotificationPolicyAccessGranted()
 
+        // Если разрешения не выданы ранее ИЛИ отключены сейчас, показываем AlertDialog
+        if (batteryOptimizationEnabled || !dndPermissionGranted) {
+            AlertDialog.Builder(this)
+                .setTitle("Важная информация")
+                .setMessage("Для обеспечения точной работы будильника, пожалуйста, выберите режим фоновой активности \"Нет ограничений\" и разрешите игнорировать режим \"Не беспокоить\". Это позволит будильнику срабатывать вовремя, даже если устройство находится в режиме ожидания или режиме \"Не беспокоить\".")
+                .setPositiveButton("OK") { _, _ ->
+                    requestBatteryOptimizationWhitelist()
+                    requestDoNotDisturbPermission()
+                }
+                .setNegativeButton("Отмена", null)
+                .show()
+        }
+
+        // Инициализация alarmManager
         alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+        // Инициализация компонентов UI
         infoTextView = findViewById<TextView>(R.id.infoTextView)
-
         alarmGridLayout = findViewById<GridLayout>(R.id.alarmGridLayout)
         addAlarmButton = findViewById(R.id.addAlarmButton)
 
+        // Инициализация alarmAdapter
         alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmAdapter = AlarmAdapter(alarms) { position -> onAlarmClick(position) }
 
         // Загрузка сохраненных будильников
         loadAlarms()
 
+        // Обработчик нажатия на кнопку добавления будильника
         findViewById<FloatingActionButton>(R.id.addAlarmButton).setOnClickListener {
             showAddAlarmDialog()
         }
 
+        // Инициализация кнопки включения/выключения всех будильников
         toggleAllAlarmsButton = findViewById<MaterialButton>(R.id.toggleAllAlarmsButton)
 
+        // Обработчик нажатия на кнопку включения/выключения всех будильников
         toggleAllAlarmsButton.setOnClickListener {
             if (toggleAllAlarmsButton.text == "Откл. все") {
                 // Выключаем все будильники
@@ -98,13 +110,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            return powerManager.isIgnoringBatteryOptimizations(packageName)
+        }
+        return true // Для Android версий ниже M оптимизация батареи не применяется
+    }
+
+    private fun isNotificationPolicyAccessGranted(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            // Проверяем, включены ли уведомления для приложения
+            val areNotificationsEnabled = notificationManager.areNotificationsEnabled()
+            return areNotificationsEnabled
+        }
+        return true // Для Android версий ниже M разрешение "Не беспокоить" не требуется
+    }
+
     private fun requestBatteryOptimizationWhitelist() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val intent = Intent()
-            val packageName = packageName
-            val pm = getSystemService(POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                 intent.data = Uri.parse("package:$packageName")
                 startActivity(intent)
             }
@@ -112,7 +140,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestDoNotDisturbPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { // Проверка версии Android
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { // Проверка версии Android
             val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             if (!notificationManager.isNotificationPolicyAccessGranted) {
                 val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -287,6 +315,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun scheduleAlarm(alarm: Alarm) {
+
         val intent = Intent(this, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(this, alarm.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
