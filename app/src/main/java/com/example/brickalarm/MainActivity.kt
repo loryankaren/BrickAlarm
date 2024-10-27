@@ -2,13 +2,12 @@ package com.example.brickalarm
 
 import android.Manifest
 
-import android.annotation.SuppressLint
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 
 import android.icu.util.Calendar
 import android.os.Build
@@ -23,26 +22,27 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.ui.semantics.text
 import androidx.core.app.ActivityCompat
+import androidx.core.app.AlarmManagerCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.timepicker.MaterialTimePicker
-import com.google.android.material.timepicker.TimeFormat
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.semantics.text
 
 class MainActivity : AppCompatActivity() {
 
-    private var selectedDaysForNewAlarm: List<Int> = emptyList() // Переменная для хранения выбранных дней
-
     private var selectedButton: AppCompatButton? = null
 
-    private val lightGreen = Color.argb(255,184, 219, 199)
+    private lateinit var requestExactAlarmLauncher: ActivityResultLauncher<Intent>
 
     private lateinit var addAlarmButton: FloatingActionButton
     private lateinit var toggleAllAlarmsButton: MaterialButton
 
     private lateinit var alarmManager: AlarmManager
-    //private lateinit var alarmRecyclerView: RecyclerView
     private lateinit var alarmAdapter: AlarmAdapter
     private val alarms = mutableListOf<Alarm>()
     private lateinit var alarmGridLayout: GridLayout
@@ -50,24 +50,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (checkSelfPermission(Manifest.permission.SCHEDULE_EXACT_ALARM) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.SCHEDULE_EXACT_ALARM), 0)
-            }
-        }
-
         setContentView(R.layout.activity_main)
+
+        AlertDialog.Builder(this)
+            .setTitle("Важная информация")
+            .setMessage("Для обеспечения точной работы будильника, пожалуйста, выберите режим фоновой активности \"Нет ограничений\" и разрешите игнорировать режим \"Не беспокоить\". Это позволит будильнику срабатывать вовремя, даже если устройство находится в режиме ожидания или режиме \"Не беспокоить\".")
+            .setPositiveButton("OK") { _, _ ->
+                requestBatteryOptimizationWhitelist()
+                requestDoNotDisturbPermission() // Вызов requestDoNotDisturbPermission() после нажатия "OK"
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+
+        alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         infoTextView = findViewById<TextView>(R.id.infoTextView)
 
         alarmGridLayout = findViewById<GridLayout>(R.id.alarmGridLayout)
-        //alarmRecyclerView = findViewById(R.id.alarmGrid)
         addAlarmButton = findViewById(R.id.addAlarmButton)
 
         alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmAdapter = AlarmAdapter(alarms) { position -> onAlarmClick(position) }
-        //alarmRecyclerView.adapter = alarmAdapter
 
         // Загрузка сохраненных будильников
         loadAlarms()
@@ -93,18 +96,29 @@ class MainActivity : AppCompatActivity() {
             updateAlarmButtons()
             updateAlarms()
         }
-
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 0) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Разрешение предоставлено
-                Toast.makeText(this, "Разрешение предоставлено", Toast.LENGTH_SHORT).show()
-                updateAlarms()
-            } else {
-                Toast.makeText(this, "Разрешение отклонено", Toast.LENGTH_SHORT).show()
+    private fun requestBatteryOptimizationWhitelist() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent()
+            val packageName = packageName
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                intent.data = Uri.parse("package:$packageName")
+                startActivity(intent)
+            }
+        }
+    }
+
+    private fun requestDoNotDisturbPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { // Проверка версии Android
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            if (!notificationManager.isNotificationPolicyAccessGranted) {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, packageName) // Указываем пакет вашего приложения
+                }
+                startActivity(intent)
             }
         }
     }
@@ -240,9 +254,7 @@ class MainActivity : AppCompatActivity() {
         params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
         newAlarmButton.layoutParams = params
         newAlarmButton.text = String.format("%02d:%02d", alarm.hour, alarm.minute)
-        newAlarmButton.setOnClickListener {
-            onAlarmClick(it)
-        }
+
         alarmGridLayout.addView(newAlarmButton)
 
         newAlarmButton.post { // Установка listener после добавления в GridLayout
@@ -276,7 +288,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun scheduleAlarm(alarm: Alarm) {
         val intent = Intent(this, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(this, alarm.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE)
+        val pendingIntent = PendingIntent.getBroadcast(this, alarm.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
         val calendar = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, alarm.hour)
@@ -288,67 +300,20 @@ class MainActivity : AppCompatActivity() {
             calendar.add(Calendar.DAY_OF_MONTH, 1)
         }
 
-        val repeatInterval = when (alarm.mode) {
-            AlarmMode.ONCE -> 0L // Не повторять
-            AlarmMode.DAILY -> AlarmManager.INTERVAL_DAY
-            AlarmMode.WEEKDAYS -> AlarmManager.INTERVAL_DAY * 7 // Приблизительно, нужно уточнить логику для будних дней
-            AlarmMode.CUSTOM_DAYS -> {
-                // Логика для расчета интервала для пользовательских дней (требует доработки)
-                // ...
-                0L // Пока возвращаем 0, чтобы не использовать setRepeating
-            }
-        }
-
+        // Используем setAlarmClock() для установки будильника
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (checkSelfPermission(Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED) {
-                // Разрешение предоставлено
-                if (alarmManager.canScheduleExactAlarms()) {
-                    // Устройство поддерживает точные будильники
-                    try {
-                        if (repeatInterval > 0) {
-                            alarmManager.setRepeating(
-                                AlarmManager.RTC_WAKEUP,
-                                calendar.timeInMillis,
-                                repeatInterval,
-                                pendingIntent
-                            )
-                        } else {
-                            alarmManager.setAlarmClock(
-                                AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
-                                pendingIntent
-                            )
-                        }
-                        Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
-                    } catch (e: SecurityException) {
-                        // Обработка SecurityException, например, сообщить пользователю или использовать альтернативный подход
-                        Toast.makeText(this, "Ошибка установки будильника: ${e.message}", Toast.LENGTH_LONG).show()
-                        // Здесь можно использовать запасной вариант, например, неточные будильники или WorkManager
-                    }
-                } else {
-                    // Устройство не поддерживает точные будильники
-                    // Используйте альтернативный подход, например, WorkManager или setInexactRepeating
-                    Toast.makeText(this, "Устройство не поддерживает точные будильники", Toast.LENGTH_LONG).show()
-                    // Здесь нужно реализовать запасную логику
-                }
-            } else {
-                // Разрешение не предоставлено, запросить его
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.SCHEDULE_EXACT_ALARM), 0)
+            try {
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
+            } catch (e: SecurityException) {
+                // Обработка SecurityException, например, сообщить пользователю или использовать альтернативный подход
+                Toast.makeText(this, "Ошибка установки будильника: ${e.message}", Toast.LENGTH_LONG).show()
             }
         } else {
             // Для Android 11 и ниже разрешение не требуется
-            if (repeatInterval > 0) {
-                alarmManager.setRepeating(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    repeatInterval,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setAlarmClock(
-                    AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
-                    pendingIntent
-                )
-            }
+            val alarmClockInfo = AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent)
+            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
             Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
         }
 
@@ -357,7 +322,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun cancelAlarm(alarm: Alarm) {
-        // ... (код остается прежним) ...
+        val intent = Intent(this, AlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(this, alarm.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        alarmManager.cancel(pendingIntent)
     }
 
     private fun loadAlarms() {

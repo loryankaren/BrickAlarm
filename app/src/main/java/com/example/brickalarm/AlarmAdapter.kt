@@ -1,14 +1,12 @@
 package com.example.brickalarm
 
 import android.graphics.Color
-import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.NumberPicker
 import android.widget.RadioGroup
-import android.widget.TextView
 
 import androidx.recyclerview.widget.RecyclerView
 
