@@ -9,8 +9,4 @@
         <item name="backgroundTint">@android:color/transparent</item>
     </style>
 
-<!--    <style name="NumberPickerStyle" parent="Widget.AppCompat.NumberPicker">-->
-<!--        <item name="android:textSize">20sp</item>-->
-<!--    </style>-->
-
 </resources>

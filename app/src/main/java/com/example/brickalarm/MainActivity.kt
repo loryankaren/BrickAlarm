@@ -1,13 +1,17 @@
 package com.example.brickalarm
 
+import android.Manifest
+
 import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 
 import android.icu.util.Calendar
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -20,6 +24,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.ui.semantics.text
+import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.timepicker.MaterialTimePicker
@@ -45,6 +50,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (checkSelfPermission(Manifest.permission.SCHEDULE_EXACT_ALARM) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.SCHEDULE_EXACT_ALARM), 0)
+            }
+        }
+
         setContentView(R.layout.activity_main)
 
         infoTextView = findViewById<TextView>(R.id.infoTextView)
@@ -82,6 +94,19 @@ class MainActivity : AppCompatActivity() {
             updateAlarms()
         }
 
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 0) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Разрешение предоставлено
+                Toast.makeText(this, "Разрешение предоставлено", Toast.LENGTH_SHORT).show()
+                updateAlarms()
+            } else {
+                Toast.makeText(this, "Разрешение отклонено", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun updateAlarmButtons() {
@@ -249,7 +274,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    @SuppressLint("ScheduleExactAlarm")
     private fun scheduleAlarm(alarm: Alarm) {
         val intent = Intent(this, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(this, alarm.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE)
@@ -269,46 +293,67 @@ class MainActivity : AppCompatActivity() {
             AlarmMode.DAILY -> AlarmManager.INTERVAL_DAY
             AlarmMode.WEEKDAYS -> AlarmManager.INTERVAL_DAY * 7 // Приблизительно, нужно уточнить логику для будних дней
             AlarmMode.CUSTOM_DAYS -> {
-                val calendar = Calendar.getInstance()
-                val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-                val selectedDays = alarm.selectedDays // Список выбранных дней недели (1 - понедельник, 2 - вторник, и т.д.)
-
-                // Находим следующий выбранный день недели
-                val nextDayOfWeek = selectedDays.firstOrNull { it > currentDayOfWeek } ?: selectedDays.first()
-
-                // Вычисляем разницу в днях
-                val daysUntilNextAlarm = if (nextDayOfWeek > currentDayOfWeek) {
-                    nextDayOfWeek - currentDayOfWeek
-                } else {
-                    7 - currentDayOfWeek + nextDayOfWeek
-                }
-
-                // Устанавливаем интервал повтора в миллисекундах
-                AlarmManager.INTERVAL_DAY * daysUntilNextAlarm
+                // Логика для расчета интервала для пользовательских дней (требует доработки)
+                // ...
+                0L // Пока возвращаем 0, чтобы не использовать setRepeating
             }
         }
 
-        if (repeatInterval > 0) {
-            alarmManager.setRepeating(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                repeatInterval,
-                pendingIntent
-            )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (checkSelfPermission(Manifest.permission.SCHEDULE_EXACT_ALARM) == PackageManager.PERMISSION_GRANTED) {
+                // Разрешение предоставлено
+                if (alarmManager.canScheduleExactAlarms()) {
+                    // Устройство поддерживает точные будильники
+                    try {
+                        if (repeatInterval > 0) {
+                            alarmManager.setRepeating(
+                                AlarmManager.RTC_WAKEUP,
+                                calendar.timeInMillis,
+                                repeatInterval,
+                                pendingIntent
+                            )
+                        } else {
+                            alarmManager.setAlarmClock(
+                                AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
+                                pendingIntent
+                            )
+                        }
+                        Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
+                    } catch (e: SecurityException) {
+                        // Обработка SecurityException, например, сообщить пользователю или использовать альтернативный подход
+                        Toast.makeText(this, "Ошибка установки будильника: ${e.message}", Toast.LENGTH_LONG).show()
+                        // Здесь можно использовать запасной вариант, например, неточные будильники или WorkManager
+                    }
+                } else {
+                    // Устройство не поддерживает точные будильники
+                    // Используйте альтернативный подход, например, WorkManager или setInexactRepeating
+                    Toast.makeText(this, "Устройство не поддерживает точные будильники", Toast.LENGTH_LONG).show()
+                    // Здесь нужно реализовать запасную логику
+                }
+            } else {
+                // Разрешение не предоставлено, запросить его
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.SCHEDULE_EXACT_ALARM), 0)
+            }
         } else {
-            alarmManager.setExact(
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                pendingIntent
-            )
+            // Для Android 11 и ниже разрешение не требуется
+            if (repeatInterval > 0) {
+                alarmManager.setRepeating(
+                    AlarmManager.RTC_WAKEUP,
+                    calendar.timeInMillis,
+                    repeatInterval,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
+                    pendingIntent
+                )
+            }
+            Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
         }
 
-        if (alarm.mode == AlarmMode.CUSTOM_DAYS) {
-            // Планируем будильник на выбранные дни недели
-            // ...
-        }
-
-        Toast.makeText(this, "Будильник установлен на ${alarm.hour}:${alarm.minute}", Toast.LENGTH_SHORT).show()
+        // Дополнительная логика для AlarmMode.CUSTOM_DAYS (требует доработки)
+        // ...
     }
 
     private fun cancelAlarm(alarm: Alarm) {
